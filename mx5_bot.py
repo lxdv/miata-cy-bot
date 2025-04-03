@@ -8,8 +8,9 @@ import random
 import os
 
 # === ТВОИ ДАННЫЕ ===
-TELEGRAM_BOT_TOKEN = os.getenv("7895859092:AAESvsmGrRhUJ7BSYcSYlm1idR7S3g4foQI")
-os.getenv("ADMIN_CHAT_ID")  # Твой Telegram ID
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+ADMIN_CHAT_ID = int(os.getenv("ADMIN_CHAT_ID"))  # Твой Telegram ID
+
 
 SUBSCRIBERS_FILE = "subscribers.txt"
 POSTS_FILE = "posts.txt"
