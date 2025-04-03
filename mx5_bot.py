@@ -168,6 +168,8 @@ async def main():
         application.add_handler(CommandHandler("subscribe", subscribe_command))
         application.add_handler(CommandHandler("unsubscribe", unsubscribe_command))
         application.add_handler(CommandHandler("randompost", randompost_command))
+        application.add_handler(CommandHandler("subscribers", subscribers_command))
+
 
         asyncio.create_task(schedule_checks(application.bot))
 
