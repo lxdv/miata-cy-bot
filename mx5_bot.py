@@ -38,6 +38,19 @@ def save_subscribers():
 
 subscribers = load_subscribers()
 
+# === Команда /subscribers (только для админа)
+async def subscribers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if str(update.message.chat_id) != str(ADMIN_CHAT_ID):
+        await update.message.reply_text("⛔ Эта команда только для администратора.")
+        return
+
+    if not subscribers:
+        await update.message.reply_text("📭 Подписок пока нет.")
+    else:
+        text = "📋 Список подписчиков:\n" + "\n".join(subscribers)
+        await update.message.reply_text(text)
+
+
 # === Получение всех объявлений
 def get_all_ads():
     response = requests.get(URL)
