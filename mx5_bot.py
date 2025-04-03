@@ -1,132 +1,145 @@
-import time
-import asyncio
 import requests
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
+from bs4 import BeautifulSoup
 from telegram import Update, Bot
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from telegram.ext import (
+    ApplicationBuilder, CommandHandler, MessageHandler,
+    ContextTypes, filters
+)
+import datetime
+import asyncio
+import random
+import nest_asyncio
 
-# === ТВОИ ДАННЫЕ ===
+nest_asyncio.apply()
+
+# === НАСТРОЙКИ ===
 TELEGRAM_BOT_TOKEN = '7895859092:AAESvsmGrRhUJ7BSYcSYlm1idR7S3g4foQI'
-CHAT_ID = 589941059 # без кавычек
+OWNER_CHAT_ID = 589941059  # твой Telegram user ID
+CHANNEL_USERNAME = 'miata_cy'
 
-# === Ссылка на Mazda MX-5 ===
+# === Переменные ===
+subscribers = set()
+last_seen_url = None
+
+# === Сайт с Mazda MX-5 ===
 URL = "https://www.bazaraki.com/car-motorbikes-boats-and-parts/cars-trucks-and-vans/mazda/mazda-mx5/"
 
-# === Создание headless-браузера через Selenium ===
-def create_driver():
-    options = Options()
-    options.add_argument("--headless")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    return webdriver.Chrome(options=options)
-
-# === Поиск всех ссылок с текстом Mazda MX5 ===
 def get_all_ads():
-    driver = create_driver()
-    driver.get(URL)
-    time.sleep(3)
-
-    # Скроллим вниз, чтобы подгрузились все объявления
-    for _ in range(5):
-        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-        time.sleep(2)
-
-    links = driver.find_elements(By.TAG_NAME, "a")
+    response = requests.get(URL)
+    soup = BeautifulSoup(response.text, "html.parser")
+    ads = soup.find_all("a", href=True)
     results = []
+    for tag in ads:
+        text = tag.get_text(strip=True)
+        href = tag["href"]
+        if "mazda-mx5" in href.lower() and "Mazda MX5" in text:
+            full_url = "https://www.bazaraki.com" + href
+            results.append((text, full_url))
+    return list(dict.fromkeys(results))  # удаляем дубликаты
 
-    for link in links:
-        try:
-            text = link.text.strip()
-            href = link.get_attribute("href")
-            if "Mazda MX5" in text and href:
-                print(f"✅ Найдено объявление: {text} — {href}")
-                results.append((text, "—", href, None))  # без цены и фото
-        except Exception as e:
-            print("⚠️ Ошибка при парсинге ссылки:", e)
+# === Команды ===
 
-    driver.quit()
-    print(f"🔍 Найдено Mazda-ссылок: {len(results)}")
-    return results
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "👋 Привет! Я бот, который следит за новыми объявлениями Mazda MX-5 на Bazaraki.\n\n"
+        "📌 Доступные команды:\n"
+        "  /available — покажу все текущие объявления (нужно подождать минутку)\n"
+        "  /subscribe — включить автоматические уведомления о новых объявлениях\n"
+        "  /unsubscribe — отключить уведомления\n"
+        "  /randompost — случайный пост из канала Miata CY 🚗\n"
+        "  /start или /help — покажу это сообщение ещё раз\n\n"
+        "🔕 Уведомления приходят *без звука*, чтобы не отвлекать 😊\n\n"
+        "🛡️ *Дисклеймер:* Бот хранит только ваш Telegram ID, чтобы отправлять вам объявления. Личные данные, сообщения или что-либо ещё — не собираются и не сохраняются.\n\n"
+        "✉️ Если будут вопросы или предложения — пиши прямо сюда! 🙂"
+    )
 
-# === Отправка объявления в Telegram ===
-async def send_ad(update: Update, title, price, link, image_url):
-    caption = f"{title}\nЦена: {price}\n🔗 {link}"
+async def available_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("🔍 Подожди немного, ищу объявления...")
+    ads = get_all_ads()
+    if not ads:
+        await update.message.reply_text("🙁 Объявлений не найдено.")
+        return
+
+    for title, link in ads:
+        await update.message.reply_text(f"{title}\n{link}", disable_notification=True)
+        await asyncio.sleep(1)
+
+async def subscribe_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    subscribers.add(user_id)
+    await update.message.reply_text("✅ Уведомления включены! Я пришлю тебе новые объявления, как только они появятся.")
+
+async def unsubscribe_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if user_id in subscribers:
+        subscribers.remove(user_id)
+        await update.message.reply_text("❌ Уведомления отключены.")
+    else:
+        await update.message.reply_text("Ты не был в списке подписчиков.")
+
+async def randompost_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        await update.message.reply_text(caption)
+        async with context.bot.get_chat(CHANNEL_USERNAME) as channel:
+            posts = await context.bot.get_chat_history(channel.id, limit=100)
+            messages = [m for m in posts if m.text or m.caption]
+            if messages:
+                msg = random.choice(messages)
+                if msg.photo:
+                    await update.message.reply_photo(photo=msg.photo[-1].file_id, caption=msg.caption, disable_notification=True)
+                else:
+                    await update.message.reply_text(msg.text, disable_notification=True)
+            else:
+                await update.message.reply_text("Канал пока пуст.")
     except Exception as e:
-        print("⚠️ Ошибка при отправке:", e)
+        await update.message.reply_text("⚠️ Не удалось получить пост. Попробуй позже.")
 
-# === Проверка новых объявлений ===
-last_seen_url = None
-async def check_for_new(bot: Bot):
+async def forward_user_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    text = update.message.text
+    message = f"📩 Сообщение от @{user.username or user.first_name} (ID: {user.id}):\n{text}"
+    await context.bot.send_message(chat_id=OWNER_CHAT_ID, text=message)
+
+# === Автоматическая проверка новых объявлений ===
+async def check_for_new_ads(bot: Bot):
     global last_seen_url
     ads = get_all_ads()
     if ads:
-        title, price, link, image_url = ads[0]
+        title, link = ads[0]
         if link != last_seen_url:
             last_seen_url = link
-            print(f"🔔 Новое объявление: {title}")
-            # нет update, поэтому отправка не возможна напрямую
-        else:
-            print("⏳ Новых объявлений нет.")
-    else:
-        print("⚠️ Объявления не найдены.")
+            text = f"🔔 Новое объявление!\n{title}\n{link}"
+            for user_id in subscribers:
+                try:
+                    await bot.send_message(chat_id=user_id, text=text, disable_notification=True)
+                except:
+                    pass
 
-# === Обработка команды /available ===
-async def available_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    print("📩 Команда /available получена")
-    await update.message.reply_text("⏳ Подожди несколько секунд, я ищу свежие объявления...")
-    ads = get_all_ads()
-    if not ads:
-        await update.message.reply_text("Нет доступных объявлений.")
-        return
-    for title, price, link, image_url in ads:
-        await send_ad(update, title, price, link, image_url)
-        await asyncio.sleep(1)
-
-# === Обработка команды /start ===
-async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    welcome_text = (
-        "👋 Привет! Я бот, который отслеживает новые объявления Mazda MX-5 на Bazaraki.\n\n"
-        "📌 Я умею:\n"
-        "• Проверять сайт дважды в день (в 11:00 и 18:00)\n"
-        "• Присылать тебе новые объявления, как только они появятся\n"
-        "• Показывать все доступные сейчас объявления по команде /available\n\n"
-        "Напиши /available, чтобы посмотреть текущие предложения 💌"
-    )
-    await update.message.reply_text(welcome_text)
-
-    # 🔔 Отправка уведомления владельцу
-    user = update.effective_user
-    alert_text = f"👀 Новый пользователь: {user.first_name} (@{user.username}) запустил бота!"
-    try:
-        await context.bot.send_message(chat_id=CHAT_ID, text=alert_text)
-    except Exception as e:
-        print("⚠️ Не удалось отправить уведомление владельцу:", e)
-
-# === Проверка дважды в день ===
-async def schedule_check(bot: Bot):
+async def scheduled_checker(bot: Bot):
     while True:
-        now = time.localtime()
-        if now.tm_hour == 11 or now.tm_hour == 18:
-            print(f"🕒 {now.tm_hour:02d}:{now.tm_min:02d} — проверка объявлений")
-            await check_for_new(bot)
+        now = datetime.datetime.now()
+        if now.hour in [11, 18]:
+            print("⏰ Запуск авто-проверки")
+            await check_for_new_ads(bot)
             await asyncio.sleep(3600)
         else:
             await asyncio.sleep(300)
 
-# === Запуск бота ===
+# === Основной запуск ===
 async def main():
     app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
-    app.add_handler(CommandHandler("available", available_command))
+
     app.add_handler(CommandHandler("start", start_command))
-    asyncio.create_task(schedule_check(app.bot))
-    print("🚗 Бот запущен. Жду /available и проверяю в 11:00 и 18:00")
+    app.add_handler(CommandHandler("help", start_command))
+    app.add_handler(CommandHandler("available", available_command))
+    app.add_handler(CommandHandler("subscribe", subscribe_command))
+    app.add_handler(CommandHandler("unsubscribe", unsubscribe_command))
+    app.add_handler(CommandHandler("randompost", randompost_command))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, forward_user_message))
+
+    asyncio.create_task(scheduled_checker(app.bot))
+
+    print("🚗 Бот запущен. Ожидаю команды.")
     await app.run_polling()
 
-if __name__ == '__main__':
-    import nest_asyncio
-    nest_asyncio.apply()
+if __name__ == "__main__":
     asyncio.run(main())
