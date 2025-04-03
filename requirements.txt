@@ -1,6 +1,4 @@
 python-telegram-bot==20.7
-httpx<0.25
-requests
-beautifulsoup4
-selenium
-nest_asyncio
+httpx==0.25.2
+beautifulsoup4==4.12.3
+requests==2.31.0
