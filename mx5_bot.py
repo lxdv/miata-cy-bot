@@ -6,6 +6,7 @@ import datetime
 import asyncio
 import random
 import os
+import telegram.error 
 
 # === ТВОИ ДАННЫЕ ===
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -145,19 +146,23 @@ async def schedule_checks(bot: Bot):
 
 # === Запуск бота
 async def main():
-    application = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
+    try:
+        application = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
 
-    application.add_handler(CommandHandler("start", start_command))
-    application.add_handler(CommandHandler("help", start_command))
-    application.add_handler(CommandHandler("available", available_command))
-    application.add_handler(CommandHandler("subscribe", subscribe_command))
-    application.add_handler(CommandHandler("unsubscribe", unsubscribe_command))
-    application.add_handler(CommandHandler("randompost", randompost_command))
+        application.add_handler(CommandHandler("start", start_command))
+        application.add_handler(CommandHandler("help", start_command))
+        application.add_handler(CommandHandler("available", available_command))
+        application.add_handler(CommandHandler("subscribe", subscribe_command))
+        application.add_handler(CommandHandler("unsubscribe", unsubscribe_command))
+        application.add_handler(CommandHandler("randompost", randompost_command))
 
-    asyncio.create_task(schedule_checks(application.bot))
+        asyncio.create_task(schedule_checks(application.bot))
 
-    print("🚗 Бот запущен. Ожидаю команды.")
-    await application.run_polling()
+        print("🚗 Бот запущен. Ожидаю команды.")
+        await application.run_polling()
+    except telegram.error.Conflict as e:
+        print("⚠️ Бот уже запущен где-то ещё. Завершаю запуск.")
+        print(e)
 
 if __name__ == '__main__':
     import nest_asyncio
