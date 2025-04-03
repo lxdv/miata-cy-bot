@@ -9,7 +9,7 @@ import os
 
 # === ТВОИ ДАННЫЕ ===
 TELEGRAM_BOT_TOKEN = os.getenv("7895859092:AAESvsmGrRhUJ7BSYcSYlm1idR7S3g4foQI")
-ADMIN_CHAT_ID = int(os.getenv("589941059"))  # Твой Telegram ID
+ADMIN_CHAT_ID = os.getenv("589941059")  # Твой Telegram ID
 
 SUBSCRIBERS_FILE = "subscribers.txt"
 POSTS_FILE = "posts.txt"
