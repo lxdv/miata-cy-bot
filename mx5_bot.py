@@ -8,6 +8,8 @@ import random
 import os
 import nest_asyncio
 nest_asyncio.apply()
+from telegram.ext import CallbackQueryHandler
+
 
 # === Константы ===
 SUBSCRIBERS_FILE = "subscribers.txt"
@@ -200,7 +202,7 @@ async def main():
 
         # Кнопки
         application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, forward_user_message))
-        application.add_handler(MessageHandler(filters.UpdateType.CALLBACK_QUERY, handle_callback))
+        application.add_handler(CallbackQueryHandler(handle_callback))
 
         # Установим команды
         await set_bot_commands(application)
