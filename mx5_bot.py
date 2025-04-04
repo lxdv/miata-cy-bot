@@ -156,16 +156,14 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     await update.message.reply_text(welcome_text, parse_mode="Markdown")
 
-# === Расписание 11:00 и 18:00
+# === Проверка объявлений каждый час
 async def schedule_checks(bot: Bot):
     while True:
         now = datetime.datetime.now()
-        if now.hour == 11 or now.hour == 18:
-            print(f"🕓 {now.strftime('%H:%M')} — запуск проверки новых объявлений")
-            await check_for_new_ad(bot)
-            await asyncio.sleep(3600)
-        else:
-            await asyncio.sleep(300)
+        print(f"🕓 {now.strftime('%H:%M')} — проверка новых объявлений")
+        await check_for_new_ad(bot)
+        await asyncio.sleep(3600)  # подождать 1 час
+
 
 # === Запуск бота
 async def main():
