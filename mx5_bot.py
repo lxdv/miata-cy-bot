@@ -7,6 +7,8 @@ import asyncio
 import random
 import os
 import telegram.error 
+from telegram.ext import MessageHandler, filters
+
 
 # === ТВОИ ДАННЫЕ ===
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -130,6 +132,14 @@ async def randompost_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         print(f"⚠️ Ошибка randompost: {e}")
         await update.message.reply_text("⚠️ Не удалось получить случайный пост.")
 
+# === Пересылка сообщений админу
+async def forward_user_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message and update.message.text:
+        user = update.message.from_user
+        text = update.message.text
+        forwarded_text = f"📩 Сообщение от @{user.username or 'без ника'} (ID: {user.id}):\n{text}"
+        await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=forwarded_text)
+
 # === Команда /start и /help
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     welcome_text = (
@@ -170,6 +180,8 @@ async def main():
         application.add_handler(CommandHandler("randompost", randompost_command))
         application.add_handler(CommandHandler("subscribers", subscribers_command))
 
+        # Обработчик обычных сообщений
+        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, forward_user_message))
 
         asyncio.create_task(schedule_checks(application.bot))
 
@@ -178,6 +190,7 @@ async def main():
     except telegram.error.Conflict as e:
         print("⚠️ Бот уже запущен где-то ещё. Завершаю запуск.")
         print(e)
+
 
 if __name__ == '__main__':
     import nest_asyncio
