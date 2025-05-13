@@ -2,10 +2,9 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 
-def subscribers_command(redis_client):
+def subscribers_command(redis_client, admin_chat_id):
     async def handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         subscribers = redis_client.get_subscribers()
-        admin_chat_id = redis_client.get_admin()
 
         if str(update.message.chat_id) != str(admin_chat_id):
             await update.message.reply_text("⛔ Эта команда только для администратора.")
@@ -19,9 +18,8 @@ def subscribers_command(redis_client):
     return handler
 
 
-def forward_user_message(redis_client):
+def forward_user_message(admin_chat_id):
     async def handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        admin_chat_id = redis_client.get_admin()
         if update.message and update.message.text:
             user = update.message.from_user
             text = update.message.text

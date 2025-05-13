@@ -41,10 +41,10 @@ class MiataBot:
         self.application = ApplicationBuilder().token(telegram_token).build()
 
         self.application.add_handler(
-            CommandHandler("subscribers", subscribers_command(self.redis_client))
+            CommandHandler("subscribers", subscribers_command(self.redis_client, self.admin_chat_id))
         )
         self.application.add_handler(
-            MessageHandler(filters.TEXT & ~filters.COMMAND, forward_user_message(self.redis_client))
+            MessageHandler(filters.TEXT & ~filters.COMMAND, forward_user_message(self.admin_chat_id))
         )
 
         self.application.add_handler(
