@@ -18,6 +18,12 @@ def randompost_command(redis_client):
 
     return handler
 
+def randomfact_command(gpt_model):
+    async def handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        fact = gpt_model.evaluate()
+        await update.message.reply_text(fact, parse_mode="Markdown")
+
+    return handler
 
 async def available_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🔍 Подожди немного, ищу объявления...")
