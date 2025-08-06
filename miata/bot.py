@@ -11,12 +11,13 @@ from telegram.ext import (
 
 from miata.handlers.admin import forward_user_message, subscribers_command
 from miata.handlers.etc import handle_callback, start_command
-from miata.handlers.messages import available_command, randompost_command
+from miata.handlers.messages import available_command, randompost_command, randomfact_command
 from miata.handlers.subscriptions import (
     subscribe_command,
     unsubscribe_command,
 )
 from miata.redis_utils import RedisClient
+from miata.ai.gpt import GptModel
 
 
 class MiataBot:
@@ -33,6 +34,11 @@ class MiataBot:
             host=os.getenv("REDIS_HOST", "localhost"),
             port=int(os.getenv("REDIS_PORT", 6379)),
             db=int(os.getenv("REDIS_DB", 0)),
+        )
+
+        self.gpt_model = GptModel(
+            model=os.getenv("GPT_MODEL", "gpt-4o-mini"),
+            api_key=os.getenv("OPENAI_API_KEY", ""),
         )
 
         self.admin_chat_id = os.getenv("ADMIN_CHAT_ID")
@@ -55,6 +61,7 @@ class MiataBot:
         )
         self.application.add_handler(CommandHandler("available", available_command))
         self.application.add_handler(CommandHandler("randompost", randompost_command(self.redis_client)))
+        self.application.add_handler(CommandHandler("randomfact", randomfact_command(self.gpt_model)))
         self.application.add_handler(CommandHandler("start", start_command))
         self.application.add_handler(CommandHandler("help", start_command))
 
